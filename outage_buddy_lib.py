@@ -1,3 +1,4 @@
+import time
 import tweepy
 
 def ReadConfig(filename):
@@ -29,3 +30,28 @@ def ReadConfig(filename):
     if not all([ex_key in config for ex_key in expected_keys]):
         raise ValueError("Config missing an expected key")
     return config
+
+
+class Account(object):
+
+    def __init__(self, name, owner, hours_per_update):
+        self._name = name
+        self._owner = owner
+        self._rate = float(hours_per_update)
+
+    @classmethod
+    def FromCSVLine(line):
+        spline = line.split(",")
+        if len(spline) != 3:
+            raise ValueError("Can't parse line: '%s'" % (line,))
+        return cls(spline[0], spline[1], spline[2])
+
+    def Check(self, api, now=None):
+        """Use the given tweepy API to check the most recent tweet timestamp."""
+        if now == None:
+            now = time.time()
+        created_times = [status.created_at for status
+                         in api.user_timeline(screen_name=self.name, count=3)]
+        most_recent_time = max(created_times)
+        # TODO make this work ok
+        pass

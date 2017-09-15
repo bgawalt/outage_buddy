@@ -1,5 +1,7 @@
-import time
+import sys
 import tweepy
+
+from datetime import datetime
 
 def ReadConfig(filename):
     """Read a config file and return a dictionary of its settings.
@@ -22,7 +24,7 @@ def ReadConfig(filename):
     """
     with open(filename, 'r') as infile:
         split_lines = [line.strip().split(" = ") for line in infile]
-    if not all([len(line) == 2) for line in split_lines]):
+    if not all([len(line) == 2 for line in split_lines]):
         raise ValueError("Config has an invalid line")
     config = {pair[0]: pair[1] for pair in split_lines}
     expected_keys = ['CONSUMER_KEY', 'CONSUMER_SECRET', 'ACCESS_KEY',
@@ -30,6 +32,17 @@ def ReadConfig(filename):
     if not all([ex_key in config for ex_key in expected_keys]):
         raise ValueError("Config missing an expected key")
     return config
+
+
+def CreateAPI(config):
+    ckey = config["CONSUMER_KEY"]
+    csec = config["CONSUMER_SECRET"]
+    akey = config["ACCESS_KEY"]
+    asec = config["ACCESS_SECRET"]
+
+    auth = tweepy.OAuthHandler(ckey, csec)
+    auth.set_access_token(akey, asec)
+    return tweepy.API(auth)
 
 
 class Account(object):
@@ -47,11 +60,19 @@ class Account(object):
         return cls(spline[0], spline[1], spline[2])
 
     def Check(self, api, now=None):
-        """Use the given tweepy API to check the most recent tweet timestamp."""
+        """Is the latest tweet timestamp *less* than self._rate hours ago?"""
         if now == None:
-            now = time.time()
+            now = datetime.now()
         created_times = [status.created_at for status
-                         in api.user_timeline(screen_name=self.name, count=3)]
-        most_recent_time = max(created_times)
-        # TODO make this work ok
-        pass
+                         in api.user_timeline(screen_name=self._name, count=1)]
+        most_recent_time = created_times[0]
+        delta = now - most_recent_time
+        delta_hours = float(delta.total_seconds())/3600
+        return delta_hours < self._rate
+
+if __name__ == "__main__":
+    config = ReadConfig(sys.argv[1])
+    api = CreateAPI(config)
+    bgawalt = Account(name="bgawalt", owner="bgawalt",
+                      hours_per_update=float(sys.argv[2]))
+    print bgawalt.Check(api)
